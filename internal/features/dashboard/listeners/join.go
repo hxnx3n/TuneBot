@@ -6,6 +6,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	dashboard "github.com/hxnx/tunebot/internal/features/dashboard"
+	"github.com/hxnx/tunebot/internal/music"
 )
 
 func handleDashboardJoin(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -20,6 +21,20 @@ func handleDashboardJoin(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
+	player := music.DefaultPlayerManager.Get(i.GuildID)
+	if player.HasVoiceConnection() {
+		if err := player.Stop(false); err != nil && !errors.Is(err, music.ErrPlaybackStopped) {
+			log.Printf("dashboard join: failed to leave voice channel: %v", err)
+			dashboard.RespondEphemeral(s, i, "음성 채널 퇴장에 실패했습니다.")
+			return
+		}
+		if err := dashboard.UpdateDashboardByGuild(s, i.GuildID); err != nil {
+			log.Printf("dashboard join: failed to update dashboard after leave: %v", err)
+		}
+		dashboard.RespondEphemeral(s, i, "음성 채널에서 퇴장했습니다.")
+		return
+	}
+
 	channelID, err := findUserVoiceChannel(s, i.GuildID, userID)
 	if err != nil {
 		if errors.Is(err, errNoVoiceChannel) {
@@ -31,11 +46,14 @@ func handleDashboardJoin(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	if _, err := s.ChannelVoiceJoin(i.GuildID, channelID, false, true); err != nil {
+	if err := player.JoinVoice(s, channelID); err != nil {
 		log.Printf("dashboard join: failed to join voice channel: %v", err)
 		dashboard.RespondEphemeral(s, i, "음성 채널 참가에 실패했습니다.")
 		return
 	}
 
+	if err := dashboard.UpdateDashboardByGuild(s, i.GuildID); err != nil {
+		log.Printf("dashboard join: failed to update dashboard after join: %v", err)
+	}
 	dashboard.RespondEphemeral(s, i, "음성 채널에 참가했습니다.")
 }
