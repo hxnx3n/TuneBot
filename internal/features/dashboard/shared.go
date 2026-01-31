@@ -122,6 +122,7 @@ type dashboardSnapshot struct {
 	NowPlayingThumb     string
 	HasTrack            bool
 	IsPaused            bool
+	IsVoiceConnected    bool
 }
 
 func BuildDashboardComponents(guildID string) []discordgo.MessageComponent {
@@ -140,6 +141,7 @@ func buildDashboardSnapshot(guildID string) dashboardSnapshot {
 		NowPlayingThumb:    "",
 		HasTrack:           false,
 		IsPaused:           false,
+		IsVoiceConnected:   false,
 	}
 
 	if guildID == "" {
@@ -164,6 +166,7 @@ func buildDashboardSnapshot(guildID string) dashboardSnapshot {
 
 	player := music.DefaultPlayerManager.Get(guildID)
 	state := player.State()
+	snapshot.IsVoiceConnected = player.HasVoiceConnection()
 	if state.IsPlaying && state.Track != nil {
 		snapshot.HasTrack = true
 		snapshot.IsPaused = state.PausedAt != nil
@@ -253,6 +256,10 @@ func buildDashboardComponentsFromSnapshot(snapshot dashboardSnapshot) []discordg
 		pauseStyle = discordgo.SuccessButton
 	}
 	pauseDisabled := !snapshot.HasTrack
+	joinLabel := "참가"
+	if snapshot.IsVoiceConnected {
+		joinLabel = "퇴장"
+	}
 
 	components = append(components,
 		discordgo.Separator{Divider: &divider, Spacing: &spacing},
@@ -275,7 +282,7 @@ func buildDashboardComponentsFromSnapshot(snapshot dashboardSnapshot) []discordg
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
 					Style:    discordgo.SuccessButton,
-					Label:    "참가",
+					Label:    joinLabel,
 					CustomID: "dashboard_join",
 				},
 				discordgo.Button{

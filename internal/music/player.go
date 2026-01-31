@@ -110,6 +110,32 @@ func safeSpeaking(vc *discordgo.VoiceConnection, speaking bool) {
 	_ = vc.Speaking(speaking)
 }
 
+func (p *Player) HasVoiceConnection() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.vc != nil
+}
+
+func (p *Player) JoinVoice(s *discordgo.Session, channelID string) error {
+	if s == nil {
+		return fmt.Errorf("discord session is nil")
+	}
+	if channelID == "" {
+		return fmt.Errorf("channel ID is empty")
+	}
+
+	vc, err := s.ChannelVoiceJoin(p.guildID, channelID, false, true)
+	if err != nil {
+		return err
+	}
+
+	p.mu.Lock()
+	p.session = s
+	p.vc = vc
+	p.mu.Unlock()
+	return nil
+}
+
 func (p *Player) EnqueueAndPlay(ctx context.Context, s *discordgo.Session, userID string, input string, sourceHint TrackSource, priority int) (QueueItem, error) {
 	if p.service == nil {
 		return QueueItem{}, ErrQueueStoreNil
@@ -191,30 +217,6 @@ func (p *Player) TogglePause() error {
 	return nil
 }
 
-func (p *Player) SetVolume(volume int) error {
-	if volume < 0 || volume > 200 {
-		return fmt.Errorf("volume must be between 0 and 200")
-	}
-	p.mu.Lock()
-	p.volume = volume
-	shouldRestart := p.ffmpegCmd != nil || p.playCancel != nil
-	p.mu.Unlock()
-
-	if shouldRestart && p.restartCh != nil {
-		select {
-		case p.restartCh <- struct{}{}:
-		default:
-		}
-	}
-	return nil
-}
-
-func (p *Player) GetVolume() int {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return p.volume
-}
-
 func (p *Player) State() PlaybackState {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -284,15 +286,12 @@ func (p *Player) workerLoop(ctx context.Context) {
 
 		settings := QueueSettings{
 			RepeatMode: RepeatModeNone,
-			Shuffle:    false,
 		}
 		if p.service != nil {
 			if s, err := p.service.GetSettings(ctx, p.guildID); err == nil {
 				settings = s
 			}
 		}
-		_ = p.SetVolume(settings.Volume)
-
 		if settings.RepeatMode == RepeatModeTrack {
 			for {
 				if err := p.playItem(ctx, *item); err != nil {
@@ -436,7 +435,7 @@ func (p *Player) streamAudio(ctx context.Context, url string) error {
 	ffmpegCtx, ffmpegCancel := context.WithCancel(ctx)
 	defer ffmpegCancel()
 
-	volume := float64(p.GetVolume()) / 100.0
+	volume := 1.0
 	args := []string{
 		"-reconnect", "1",
 		"-reconnect_streamed", "1",
