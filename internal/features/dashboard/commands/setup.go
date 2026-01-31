@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/hxnx/tunebot/internal/database"
 	dashboard "github.com/hxnx/tunebot/internal/features/dashboard"
 )
 
@@ -80,6 +81,11 @@ func SetupDashboard(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		ChannelID: channelID,
 		MessageID: dashboardMessage.ID,
 	})
+
+	repo := database.NewGuildRepository()
+	if err := repo.UpsertDashboardEntry(i.GuildID, channelID, dashboardMessage.ID); err != nil {
+		log.Printf("failed to save dashboard entry: %v", err)
+	}
 
 	if err := dashboard.UpdateDashboardByGuild(s, i.GuildID); err != nil {
 		log.Printf("failed to start dashboard updater: %v", err)
