@@ -1,0 +1,103 @@
+services:
+  tunebot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tunebot
+    restart: unless-stopped
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    environment:
+      DISCORD_TOKEN: "${DISCORD_TOKEN}"
+      DISCORD_APPLICATION_ID: "${DISCORD_APPLICATION_ID}"
+      DISCORD_GUILD_ID: "${DISCORD_GUILD_ID:-}"
+
+      SHARD_COUNT: "${SHARD_COUNT:-0}"
+
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      AUTO_LEAVE_TIMEOUT: "${AUTO_LEAVE_TIMEOUT:-300}"
+      DEFAULT_VOLUME: "${DEFAULT_VOLUME:-100}"
+      MAX_QUEUE_SIZE: "${MAX_QUEUE_SIZE:-500}"
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: "${DB_USER:-tunebot}"
+      DB_PASSWORD: "${DB_PASSWORD:-tunebot}"
+      DB_NAME: "${DB_NAME:-tunebot}"
+      DB_SSLMODE: "${DB_SSLMODE:-disable}"
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+      REDIS_DB: "${REDIS_DB:-0}"
+
+      SPOTIFY_CLIENT_ID: "${SPOTIFY_CLIENT_ID:-}"
+      SPOTIFY_CLIENT_SECRET: "${SPOTIFY_CLIENT_SECRET:-}"
+
+    networks:
+      - tunebot-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: tunebot-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: "${DB_USER:-tunebot}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-tunebot}"
+      POSTGRES_DB: "${DB_NAME:-tunebot}"
+      TZ: "${TZ:-UTC}"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    networks:
+      - tunebot-network
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-tunebot} -d ${DB_NAME:-tunebot}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: tunebot-redis
+    restart: unless-stopped
+
+    command: >
+      redis-server
+      --appendonly yes
+      ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+
+    volumes:
+      - redis_data:/data
+    networks:
+      - tunebot-network
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  tunebot-network:
+    driver: bridge
