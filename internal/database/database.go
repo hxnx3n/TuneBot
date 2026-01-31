@@ -72,7 +72,16 @@ func Initalize(cfg *Config) error {
 }
 
 func runMigrations() error {
-	migrations := []string{}
+	migrations := []string{
+		`
+		CREATE TABLE IF NOT EXISTS dashboard_entries (
+			guild_id TEXT PRIMARY KEY,
+			channel_id TEXT NOT NULL,
+			message_id TEXT NOT NULL,
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+		`,
+	}
 
 	for _, m := range migrations {
 		if _, err := db.Exec(m); err != nil {
