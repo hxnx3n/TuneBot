@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/hxnx/tunebot/internal/database"
 	"github.com/hxnx/tunebot/internal/music"
 	internalredis "github.com/hxnx/tunebot/internal/redis"
 	redislib "github.com/redis/go-redis/v9"
@@ -720,7 +721,16 @@ func UpdateDashboardByGuild(s *discordgo.Session, guildID string) error {
 
 	entry, ok := GetDashboardEntry(guildID)
 	if !ok || entry.ChannelID == "" || entry.MessageID == "" {
-		return fmt.Errorf("dashboard message not found")
+		repo := database.NewGuildRepository()
+		channelID, messageID, repoOK, err := repo.GetDashboardEntry(guildID)
+		if err != nil {
+			return fmt.Errorf("failed to load dashboard entry: %w", err)
+		}
+		if !repoOK || channelID == "" || messageID == "" {
+			return fmt.Errorf("dashboard message not found")
+		}
+		entry = DashboardEntry{ChannelID: channelID, MessageID: messageID}
+		SetDashboardEntry(guildID, entry)
 	}
 
 	state := music.DefaultPlayerManager.Get(guildID).State()
