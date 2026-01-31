@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	botinfocmd "github.com/hxnx/tunebot/internal/features/botinfo/commands"
 	dashboard "github.com/hxnx/tunebot/internal/features/dashboard"
 	dashboardcmd "github.com/hxnx/tunebot/internal/features/dashboard/commands"
 	dashboardlisteners "github.com/hxnx/tunebot/internal/features/dashboard/listeners"
@@ -28,6 +29,10 @@ var (
 		{
 			Name:        "핑",
 			Description: "봇 상태를 확인합니다",
+		},
+		{
+			Name:        "봇정보",
+			Description: "봇 정보를 확인합니다",
 		},
 		{
 			Name:        "노래",
@@ -113,6 +118,7 @@ var (
 	}
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"핑":    pingcmd.Ping,
+		"봇정보":  botinfocmd.Info,
 		"노래":   handleMusicGroupCommand,
 		"대시보드": dashboardcmd.SetupDashboard,
 	}
