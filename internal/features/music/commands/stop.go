@@ -2,6 +2,7 @@ package commands
 
 import (
 	"github.com/bwmarrin/discordgo"
+	dashboard "github.com/hxnx/tunebot/internal/features/dashboard"
 	shared "github.com/hxnx/tunebot/internal/features/shared"
 	"github.com/hxnx/tunebot/internal/music"
 )
@@ -21,5 +22,6 @@ func Stop(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
+	_ = dashboard.UpdateDashboardByGuild(s, i.GuildID)
 	shared.RespondEphemeral(s, i, "재생을 정지하고 대기열을 비웠습니다.")
 }
