@@ -282,6 +282,10 @@ func AddHandlers(s *discordgo.Session) {
 		musiclisteners.HandleMusicMessage(s, m)
 	})
 
+	s.AddHandler(func(s *discordgo.Session, vs *discordgo.VoiceStateUpdate) {
+		musiclisteners.HandleVoiceStateUpdate(s, vs)
+	})
+
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if modals.DefaultAwaiter.HandleInteraction(i) {
 			return
