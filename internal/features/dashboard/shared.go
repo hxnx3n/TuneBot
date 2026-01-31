@@ -208,7 +208,7 @@ func buildDashboardSnapshot(guildID string) dashboardSnapshot {
 
 		requester := strings.TrimSpace(state.Track.RequestedBy)
 		if requester != "" {
-			snapshot.NowPlayingRequester = fmt.Sprintf("`요청자: <@%s>`", requester)
+			snapshot.NowPlayingRequester = fmt.Sprintf("요청자: <@%s>", requester)
 		}
 
 		progressBar := buildProgressBar(state.Position, state.Track.Duration, 12)
