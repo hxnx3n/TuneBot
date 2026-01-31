@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	dashboard "github.com/hxnx/tunebot/internal/features/dashboard"
+
 	musicsearch "github.com/hxnx/tunebot/internal/features/music/search"
 	"github.com/hxnx/tunebot/internal/music"
 )
@@ -25,7 +25,7 @@ func handleDashboardSearch(s *discordgo.Session, i *discordgo.InteractionCreate)
 
 	userID := getInteractionUserID(i)
 	if userID == "" {
-		dashboard.RespondEphemeral(s, i, "사용자 정보를 확인할 수 없습니다.")
+		respondPublic(s, i, "사용자 정보를 확인할 수 없습니다.")
 		return
 	}
 
@@ -83,6 +83,45 @@ func handleDashboardSearch(s *discordgo.Session, i *discordgo.InteractionCreate)
 	}
 }
 
+func respondPublic(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
+	if s == nil || i == nil {
+		return
+	}
+
+	const maxContentLength = 2000
+	if len(content) > maxContentLength {
+		if maxContentLength > 1 {
+			content = content[:maxContentLength-1] + "…"
+		} else {
+			content = content[:maxContentLength]
+		}
+	}
+
+	divider := true
+	spacing := discordgo.SeparatorSpacingSizeSmall
+
+	components := []discordgo.MessageComponent{
+		discordgo.Container{
+			AccentColor: &musicsearch.AccentColor,
+			Components: []discordgo.MessageComponent{
+				discordgo.TextDisplay{Content: "알림"},
+				discordgo.Separator{Divider: &divider, Spacing: &spacing},
+				discordgo.TextDisplay{Content: content},
+			},
+		},
+	}
+
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Components: components,
+			Flags:      discordgo.MessageFlagsIsComponentsV2,
+		},
+	}); err != nil {
+		log.Printf("dashboard search: respond failed: %v", err)
+	}
+}
+
 func sendFollowupEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {
 	if s == nil || i == nil {
 		return
@@ -111,9 +150,9 @@ func sendFollowupEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate,
 		},
 	}
 
-	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	_, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 		Components: components,
-		Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+		Flags:      discordgo.MessageFlagsIsComponentsV2,
 	})
 	if err != nil {
 		log.Printf("dashboard search: followup failed: %v", err)
@@ -127,9 +166,9 @@ func sendFollowupSearchResults(s *discordgo.Session, i *discordgo.InteractionCre
 
 	components := musicsearch.BuildSearchComponents(musicsearch.SearchCustomIDPrefix, query, results)
 
-	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	_, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 		Components: components,
-		Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+		Flags:      discordgo.MessageFlagsIsComponentsV2,
 	})
 	if err != nil {
 		log.Printf("dashboard search: followup results failed: %v", err)
@@ -143,14 +182,14 @@ func handleDashboardSearchModalSubmit(s *discordgo.Session, i *discordgo.Interac
 
 	userID := getInteractionUserID(i)
 	if userID == "" {
-		dashboard.RespondEphemeral(s, i, "사용자 정보를 확인할 수 없습니다.")
+		respondPublic(s, i, "사용자 정보를 확인할 수 없습니다.")
 		return
 	}
 
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
+			Flags: discordgo.MessageFlagsIsComponentsV2,
 		},
 	}); err != nil {
 		log.Printf("dashboard search: defer failed: %v", err)
