@@ -329,19 +329,9 @@ func buildProgressBar(position, duration time.Duration, size int) string {
 		return "○" + strings.Repeat("─", size)
 	}
 	ratio := float64(position) / float64(duration)
-	if ratio < 0 {
-		ratio = 0
-	}
-	if ratio > 1 {
-		ratio = 1
-	}
+	ratio = max(0.0, min(1.0, ratio))
 	marker := int(ratio * float64(size))
-	if marker < 0 {
-		marker = 0
-	}
-	if marker > size {
-		marker = size
-	}
+	marker = min(size, max(0, marker))
 	left := strings.Repeat("━", marker)
 	right := strings.Repeat("─", size-marker)
 	return fmt.Sprintf("%s◉%s", left, right)
