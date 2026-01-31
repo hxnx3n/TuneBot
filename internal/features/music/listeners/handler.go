@@ -154,6 +154,23 @@ func getInteractionUserID(i *discordgo.InteractionCreate) string {
 	return ""
 }
 
+func isDashboardChannel(s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+	if s == nil || i == nil || i.GuildID == "" || i.ChannelID == "" {
+		return false
+	}
+
+	if entry, ok := dashboard.GetDashboardEntry(i.GuildID); ok && entry.ChannelID != "" {
+		return entry.ChannelID == i.ChannelID
+	}
+
+	ch, err := s.Channel(i.ChannelID)
+	if err != nil || ch == nil {
+		return false
+	}
+
+	return ch.Name == dashboard.DefaultDashboardChannelName
+}
+
 func deferEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -180,11 +197,17 @@ func respondEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate, cont
 		},
 	}
 
+	useEphemeral := !isDashboardChannel(s, i)
+	flags := discordgo.MessageFlagsIsComponentsV2
+	if useEphemeral {
+		flags |= discordgo.MessageFlagsEphemeral
+	}
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Components: components,
-			Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+			Flags:      flags,
 		},
 	})
 }
@@ -217,9 +240,15 @@ func sendFollowupEphemeral(s *discordgo.Session, i *discordgo.InteractionCreate,
 		},
 	}
 
-	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	useEphemeral := !isDashboardChannel(s, i)
+	flags := discordgo.MessageFlagsIsComponentsV2
+	if useEphemeral {
+		flags |= discordgo.MessageFlagsEphemeral
+	}
+
+	_, err := s.FollowupMessageCreate(i.Interaction, useEphemeral, &discordgo.WebhookParams{
 		Components: components,
-		Flags:      discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+		Flags:      flags,
 	})
 	if err != nil {
 		log.Printf("music search: followup failed: %v", err)
@@ -286,14 +315,12 @@ func sendFollowupQueueAdded(s *discordgo.Session, i *discordgo.InteractionCreate
 		},
 	}
 
-	if i.Message == nil || i.ChannelID == "" {
-		log.Printf("music search: queue update failed: missing message context")
+	if i.Interaction == nil {
+		log.Printf("music search: queue update failed: missing interaction context")
 		return
 	}
 
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:         i.Message.ID,
-		Channel:    i.ChannelID,
+	if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Components: &components,
 		Flags:      discordgo.MessageFlagsIsComponentsV2,
 	}); err != nil {
