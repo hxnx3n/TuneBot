@@ -285,6 +285,9 @@ func RegisterCommands(s *discordgo.Session, appID string, guildID string) ([]*di
 
 func AddHandlers(s *discordgo.Session) {
 	s.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		if HandleSyncMessage(s, m) {
+			return
+		}
 		musiclisteners.HandleMusicMessage(s, m)
 	})
 
